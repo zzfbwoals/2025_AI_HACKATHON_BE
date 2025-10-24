@@ -29,3 +29,8 @@
 - 📅 **루틴 관리**: 루틴 목록 및 생성 기능
 - 🔐 **인증 시스템**: 로그인/회원가입 페이지
 - 🎨 **통일된 디자인**: IonIcons 사용으로 일관된 UI/UX
+
+## 기술스택
+
+<img width="273" height="282" alt="제목 없음1" src="https://github.com/user-attachments/assets/51354d5b-6d3c-43f5-a07b-deb2096fa333" />
+
