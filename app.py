@@ -247,29 +247,125 @@ def gen_character():
 
 @app.route('/child', methods=['POST'])
 def chat_child():
-    if 'audio' not in request.files:
-        return jsonify({"error": "No audio file provided"}), 400
+    import json
 
-    audio_file = request.files['audio']
+    # 1️⃣ 텍스트 입력 받기
+    data = request.get_json()
+    user_text = data.get('prompt', '').strip() if data else ''
 
-    # 임시 wav 파일 저장
-    temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
-    audio_file.save(temp_audio_path)
+    # 2️⃣ 입력이 비어 있으면 실패 처리
+    if not user_text:
+        return jsonify({"error": "음성 인식 실패"}), 400
 
-    # 1️⃣ STT 변환
-    r = sr.Recognizer()
-    with sr.AudioFile(temp_audio_path) as source:
-        audio_data = r.record(source)
-        try:
-            user_text = r.recognize_google(audio_data, language='ko-KR')
-            print("🎙️ 아이가 말한 내용:", user_text)
-        except Exception as e:
-            return jsonify({"error": f"음성 인식 실패: {str(e)}"}), 400
+    print(user_text)
 
+    # 3️⃣ 아이 전용 시스템 프롬프트
+    SYSTEM_PROMPT = """
+SYSTEM INSTRUCTION: 역할 및 목표
 
-import json
+당신은 소아 청소년 ADHD 아동의 행동 치료 및 일상/수면 루틴 관리를 전문으로 하는 숙련된 아동 심리 전문가이자 루틴 설계 AI입니다.
 
-def export_sql_to_json(user_id):
+주어진 아동의 데이터를 면밀히 분석하여, 아동의 **주의력 향상** 및 **수면 질 개선**에 가장 효과적일 것으로 기대되는 **새로운 루틴** 또는 **기존 루틴의 개선 방안**을 구상하십시오.
+
+**목표:** 부모가 앱에 즉시 등록할 수 있도록, **아동 친화적인 언어**로 루틴의 구조(이름, 내용, 단계별 알림 문구)를 정의하는 JSON 객체를 생성해야 합니다.
+
+**[INPUT DATA: 아동 프로필 및 누적 데이터 (DB 기반 분석 요청)]**
+
+다음은 분석 대상 아동에 대해 데이터베이스에서 추출된 최근 일주일 간의 루틴 이행 및 행동 데이터입니다.
+
+### 1. 아동 프로필 및 루틴 달성 현황 (Users, Routine, ToDoList 테이블 기반)
+
+| 필드 | 값 | 설명 |
+| --- | --- | --- |
+| **아동 ID** | {users.id} | 현재 분석 대상 아동의 고유 ID (부모 계정과 연결) |
+| **아동 이름/나이** | {users.child_name} / {users.child_age}세 | 아동의 기본 정보 |
+| **선택된 챗봇** | {characters.name} | 아동이 현재 선택한 챗봇 캐릭터 |
+| **기간 내 전체 루틴 달성률** | {XX}% | `ToDoList` 또는 `Routine` 완료 기록 기반의 평균 달성률 |
+| **특정 시간대 루틴 달성률** | {YY}% (오전), {ZZ}% (저녁) | `routine.routine_time` 기준 시간대별 달성률 |
+
+### 2. 구체적인 루틴 및 행동 분석 (Routine, Routine_Options, ToDoList 테이블 기반)
+
+**[데이터]** {루틴 항목, 시도 횟수, 성공 횟수, 평균 소요 시간, 가장 자주 실패한 루틴 스텝(routine_options.option_content) 요약}
+*예시:*
+
+- **'양치하기 (저녁)'**: 7회 시도, 4회 성공. 평균 6분 소요 (목표 3분). 화/목요일에 잦은 실패.
+- **'숙제 시작하기'**: 5회 시도, 2회 성공. 실패 시 `ActivityLog.activity_note`에 '회피 행동' 기록 많음.
+- **가장 취약한 단계**: '루틴 시작(routine_options.minut=0)' 알림 후 5분 이내 실행률이 현저히 낮음.
+
+### 3. 부모 기록 및 행동 패턴 요약 (ActivityLog 테이블 기반)
+
+**[데이터]** {부모가 `ActivityLog`에 기록한 내용 요약}
+
+- **관찰 기록**: `ActivityLog.activity_note` 필드에서 추출된 주간 주요 행동 패턴 요약.
+*예시:* "수요일 저녁 8시, TV 시청 후 루틴 시작 알림에 지속적으로 회피함."
+- **기분/집중도 패턴**: `ActivityLog.mood`, `ActivityLog.focus_level` 변화 패턴 분석.
+*예시:* "오후 4시 이후 집중도(focus_level)가 2점 이하로 급격히 떨어짐."
+- **수면의 질**: `ActivityLog.sleep_quality`의 주간 평균 및 최저/최고 기록.
+
+### 4. 챗봇 대화 내용 및 감정 요약 (Dialogue 테이블 기반)
+
+**[데이터]** {`Dialogue` 테이블의 `message_text`, `emotion_tag` 기반 요약}
+
+- **주요 관심사**: 대화 내용에서 가장 많이 언급된 키워드/주제 (예: '축구', '마인크래프트').
+- **감정 패턴**: `emotion_tag` 분석을 통한 루틴 시작 전/후 감정 변화 요약 (예: 루틴 시작 전 '짜증' 증가, 루틴 성공 후 '자신감' 언급 증가).
+- **특이사항**: 밤 늦은 시간의 대화 톤이나 메시지 길이 변화 등.
+
+**[OUTPUT INSTRUCTION: 결과 출력 형식]**
+
+위 데이터를 분석하여, 아동에게 가장 효과적일 것으로 예상되는 신규 또는 수정 루틴을 **단 하나** 정의하고, 다음 JSON 형식에 맞춰 그 구조를 출력하십시오.
+
+- `routineName`: 루틴의 이름을 긍정적이고 아이의 관심사와 연관된 명칭으로 설정합니다. (예: '마인크래프트 정리 시간', '슈퍼히어로 잠옷 입기 미션')
+- `routineTimeframe`: 루틴이 실행되기에 가장 적합한 시간대를 간결하게 제시합니다. (예: '오후 8시 30분', '기상 직후')
+- `routineDescription`: 부모에게 보여줄 루틴의 목적 및 내용을 긍정적인 코칭 톤으로 1~2문장으로 설명합니다. (아동이 아닌 부모 대상 메시지)
+- `options`: 루틴 실행 단계별로 챗봇이 아동에게 제공할 **음성 알림** 및 **시간**을 정의합니다.
+    - `minutes`: 루틴 시작까지 몇 분이 남았는지
+    - `text`: 해당 단계에서 아동에게 전달될 **구체적이고 긍정적인** 알림/코칭 메시지입니다.
+
+```
+      {
+        'name': '오후 집중 독서 시간',
+        'content': '아이의 독서 습관이 좋아지고 있어요! 오후 2시부터 30분 동안 책을 읽으며 집중력을 길러봐요. 독서 후에는 작은 보상을 받을 수 있어요!',
+        'options': [
+          {'minutes': '5', 'text': '책 읽기 준비하세요! 편안한 장소를 찾아보아요.'},
+          {'minutes': '30', 'text': '책 읽기 시간이 끝났어요! 잘했어요!'},
+        ],
+      }
+```
+
+**[CONSTRAINTS]**
+
+1. **AI는 데이터를 기반으로만 루틴을 정의해야 합니다.**
+2. options 에 정의된 전체 루틴 소요 시간은 30**분을 넘지 않도록** 설계해야 합니다. (ADHD 아동의 실행 가능성을 극대화하기 위함)
+3. 출력은 오직 JSON 형식으로만 제공되어야 합니다.
+    """
+
+    # 4️⃣ AI 응답 생성
+    try:
+        response = client_child.responses.create(
+            model="gpt-5-nano",
+            input=[
+                {"role": "developer", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_text}
+            ]
+        )
+        ai_text = response.output_text
+        print(ai_text)
+    except Exception as e:
+        return jsonify({"error": f"AI 응답 생성 실패: {str(e)}"}), 500
+
+    # 5️⃣ TTS 변환 (AI 응답 → 음성)
+    try:
+        tts = gTTS(text=ai_text, lang='ko')
+        output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+        tts.save(output_path)
+    except Exception as e:
+        return jsonify({"error": f"TTS 변환 실패: {str(e)}"}), 500
+
+    # 6️⃣ mp3 파일 반환
+    return send_file(output_path, mimetype="audio/mpeg")
+
+def analyze_user_data(user_id):
+    """DB 데이터를 JSON으로 변환하고, AI로 분석"""
     conn = mysql.connector.connect(**DB_CONFIG)
     cur = conn.cursor(dictionary=True)
 
@@ -283,7 +379,7 @@ def export_sql_to_json(user_id):
 
     # 3️⃣ routine_options
     cur.execute("""
-        SELECT r.id AS routine_id, ro.minut, ro.option_content
+        SELECT r.id AS routine_id, ro.minute, ro.option_content
         FROM routine r
         LEFT JOIN routine_options ro ON r.id = ro.routine_id
         WHERE r.user_id = %s
@@ -302,12 +398,10 @@ def export_sql_to_json(user_id):
     cur.execute("SELECT * FROM learning_contents WHERE user_id = %s", (user_id,))
     learning = cur.fetchall()
 
-    # 7️⃣ Dialogue (최근 대화만)
+    # 7️⃣ Dialogue
     cur.execute("""
         SELECT * FROM Dialogue 
-        WHERE character_id IN (
-            SELECT character_id FROM users WHERE id = %s
-        )
+        WHERE character_id IN (SELECT character_id FROM users WHERE id = %s)
         ORDER BY created_at DESC LIMIT 10
     """, (user_id,))
     dialogue = cur.fetchall()
@@ -315,7 +409,7 @@ def export_sql_to_json(user_id):
     cur.close()
     conn.close()
 
-    # JSON 구조로 합치기
+    # 🧩 JSON 구조로 합치기
     data = {
         "users": user,
         "routine": routines,
@@ -326,21 +420,13 @@ def export_sql_to_json(user_id):
         "Dialogue": dialogue
     }
 
-    # JSON 파일로 저장
-    with open("user_report_data.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    json_str = json.dumps(data, ensure_ascii=False, indent=2)
 
-    return data
-
-    #JSON 파일 불러오기
-    with open("user_report_data.json", "r", encoding="utf-8") as f:
-        sql_json_data = json.load(f)
-
-    #시스템 프롬프트
+    # 🧠 시스템 프롬프트
     SYSTEM_PROMPT = """
-    당신은 "부모 코칭 리포트 생성 AI"입니다.
+당신은 "부모 코칭 리포트 생성 AI"입니다.
 
-당신의 임무는 SQL 데이터베이스에 저장된 아동의 루틴 기록, 감정 상태, 수면 패턴 등 데이터를 분석하여
+당신의 임무는 json파일에 에 저장된 아동의 루틴 기록, 감정 상태, 수면 패턴 등 데이터를 분석하여
 
 부모에게 제공할 맞춤형 코칭 리포트를 자동으로 생성하는 것입니다.
 
@@ -350,32 +436,7 @@ def export_sql_to_json(user_id):
 
 # 1. 데이터 분석
 
-당신은 SQL 쿼리 결과(스키마 기반 데이터)를 입력으로 받습니다.
-데이터에는 다음 항목들이 포함되어 있습니다:
-
-- sleep_quality
-- routine (이름)
-- routine_time
-- routine_content(루틴 내용)
-- created_at
-- updated_at
-- minute
-- option_content
-- title
-- description
-- category
-- content_type
-- difficulty
-- recommended_time
-- date
-- mood
-- focus_level
-- activity_note
-- ischecked
-
-이 데이터를 기반으로,
-
-주간/월간 루틴 수행률, 감정 상태의 변화, 수면 패턴 변화를 분석합니다.
+당신은 json 파일을기반으로 주간/월간 루틴 수행률, 감정 상태의 변화, 수면 패턴 변화를 분석합니다.
 
 ──────────────────────────────
 
@@ -429,25 +490,9 @@ AI 분석 결과를 바탕으로,
 
 # 5. 시각화 데이터 생성 (Graph Generation Guide)
 
-SQL 데이터에서 주간/월간 변화 추이를 분석하여 그래프에 사용할 데이터 포인트를 구조적으로 출력하세요.
+SQL 데이터에서 주간/월간 변화 추이를 분석하여 그래프를 만드세요
 
-예시 출력 구조:
-{
-"week_progress": [
-{"week": "2025-10-1", "routine_rate": 65},
-{"week": "2025-10-2", "routine_rate": 77},
-{"week": "2025-10-3", "routine_rate": 82}
-],
-"sleep_pattern": [
-{"week": "2025-10-1", "avg_sleep": 7.5},
-{"week": "2025-10-2", "avg_sleep": 8.0}
-],
-"emotion_trend": [
-{"date": "2025-10-15", "positive": 70, "negative": 30}
-]
-}
-
-──────────────────────────────
+───────────────────────────
 
 # 6. 출력 형식
 
@@ -477,65 +522,48 @@ SQL 데이터에서 주간/월간 변화 추이를 분석하여 그래프에 사
 
 # 8. 주의 사항
 
-- SQL 데이터에 없는 정보는 추정하지 마세요.
+- json파일에 정보는 추정하지 마세요.
 - 모든 문장은 실제 데이터에 기반해야 합니다.
 - 리포트 문체는 보고서 형식이 아니라 코칭 톤으로 유지하세요.
-──────────────────────────────"""
+──────────────────────────────
+    """
 
-    # 2️⃣ AI 응답 생성
-    response = client_child.responses.create(
+    # 🧩 AI에게 JSON 데이터 직접 전달
+    response = client.responses.create(
         model=model_name,
         input=[
             {"role": "developer", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_text}
+            {"role": "user", "content": f"다음은 SQL 데이터를 JSON으로 변환한 결과입니다:\n\n{json_str}"}
         ]
     )
-    ai_text = response.output_text
-    print("🤖 AI 응답:", ai_text)
 
-    # 3️⃣ TTS 변환 (텍스트 → 음성)
-    tts = gTTS(text=ai_text, lang='ko')
-    output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-    tts.save(output_path)
+    ai_output = response.output_text
+    return ai_output   # ✅ 결과를 반환하도록 변경
 
-    # 4️⃣ mp3 음성 반환
-    return send_file(output_path, mimetype="audio/mpeg")
 
-@app.route('/generate-routine', methods=['POST'])
-def chat_adult():
-   data = request.get_json()
-   response = client_child.responses.create(
-      model=model_name,
-      input=[
-         {
-            'role': 'developer',
-            'content': '시스템 프롬프트 (루틴 제공, 부모에게 리포트 제공)'
-         },
-         {
-            'role': 'user',
-            'content': data.get('prompt')
-         }
-        ]
-   )
-   return response.output_text
-
+# 🔹 Flask 라우트 (DB 재조회하지 않고 analyze_user_data만 호출)
 @app.route('/adult', methods=['POST'])
 def chat_adult():
-   data = request.get_json()
-   response = client_child.responses.create(
-      model=model_name,
-      input=[
-         {
-            'role': 'developer',
-            'content': '시스템 프롬프트 (루틴 제공, 부모에게 리포트 제공)'
-         },
-         {
-            'role': 'user',
-            'content': data.get('prompt')
-         }
-        ]
-   )
-   return response.output_text
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"result": "fail", "msg": "user_id가 필요합니다."}), 400
+
+    try:
+        # analyze_user_data 호출 → AI 리포트 결과 반환
+        ai_report = analyze_user_data(user_id)
+        return jsonify({
+            "result": "success",
+            "report": ai_report
+        })
+
+    except Exception as e:
+        return jsonify({
+            "result": "fail",
+            "msg": f"처리 중 오류 발생: {str(e)}"
+        }), 500
+
 
 @app.route('/mypage', methods=['GET'])
 def mypage():
