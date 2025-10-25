@@ -225,10 +225,6 @@ def get_routine_stats(user_id):
          }
       })
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
 @app.route('/routines', methods=['POST'])
 def add_routine():
    data = request.get_json()
