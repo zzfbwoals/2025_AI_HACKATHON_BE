@@ -1,10 +1,28 @@
+-- 데이터베이스 생성
 CREATE DATABASE myapp CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE myapp;
 
+-- 1️⃣ Character 테이블 (캐릭터 정보)
+CREATE TABLE characters (
+    id INT AUTO_INCREMENT PRIMARY KEY,   -- 캐릭터 고유 ID
+    name VARCHAR(50) NOT NULL,           -- 캐릭터 이름
+    description VARCHAR(255),            -- 캐릭터 설명
+    personality VARCHAR(100)             -- 캐릭터 특징
+);
+
+-- 2️⃣ User 테이블 (부모 + 자녀 + 구독 정보)
 CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id INT AUTO_INCREMENT PRIMARY KEY,          -- 부모(사용자) 고유 ID
+    character_id INT,                           -- 연결된 캐릭터 ID (FK)
+    name VARCHAR(50) NOT NULL,                  -- 부모 이름
+    email VARCHAR(100) NOT NULL UNIQUE,         -- 이메일 (중복 불가)
+    password VARCHAR(255) NOT NULL,             -- 비밀번호
+    child_name VARCHAR(50) NOT NULL,            -- 아이 이름
+    child_age INT,                              -- 아이 나이
+    subscribe VARCHAR(20) DEFAULT 'Free',       -- 구독 플랜 (기본 Free)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 생성 시각 자동 저장
+
+    FOREIGN KEY (character_id) REFERENCES characters(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL
 );
