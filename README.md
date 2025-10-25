@@ -22,6 +22,7 @@
 ## 문제 해결 목표
 본 프로젝트에서 AI를 활용하여 사용자의 하루 패턴, 감정, 관심사를 기반으로 실행 가능한 작은 단위의 루틴을 자동 설계하고 아동 맞춤 챗봇 캐릭터와 보상 시스템을 통해 과제 이행 동기를 높이며 부모/교사에게 코칭 리포트를 제공하여 소아 청소년의 주의력 향상 및 일상생활 루틴 관리를 지원하는 서비스를 개발한다.
 
+---
 ## 주요 기능
 
 - 🏠 **홈화면**: 모던한 디자인의 대시보드
@@ -30,7 +31,62 @@
 - 🔐 **인증 시스템**: 로그인/회원가입 페이지
 - 🎨 **통일된 디자인**: IonIcons 사용으로 일관된 UI/UX
 
+---
 ## 기술스택
 
 <img width="273" height="282" alt="제목 없음1" src="https://github.com/user-attachments/assets/51354d5b-6d3c-43f5-a07b-deb2096fa333" />
 
+---
+## 팀원 소개
+
+<table>
+<tr>
+<td align="center">
+<a href="https://github.com/fufckddl" target="_blank">
+<img src="https://avatars.githubusercontent.com/fufckddl" width="60px;" alt="김태현"/><br />
+<b>이창렬</b>
+</a><br/>
+팀장 / 프론트
+</td>
+<td align="center">
+<a href="https://github.com/ujieeemin" target="_blank">
+<img src="https://avatars.githubusercontent.com/ujieeemin" width="60px;" alt="유한솔"/><br />
+<b>유지민</b>
+</a><br/>
+기획 / 자료
+</td>
+<td align="center">
+<a href="https://github.com/minjini-sys" target="_blank">
+<img src="https://avatars.githubusercontent.com/minjini-sys" width="60px;" alt="최희우"/><br />
+<b>김민진</b>
+</a><br/>
+백엔드
+</td>
+<td align="center">
+<a href="https://github.com/rhehdud" target="_blank">
+<img src="https://avatars.githubusercontent.com/rhehdud" width="60px;" alt="김사랑"/><br />
+<b>고도영</b>
+</a><br/>
+백엔드
+</td>
+<td align="center">
+<a href="https://github.com/zzfbwoals" target="_blank">
+<img src="https://avatars.githubusercontent.com/zzfbwoals" width="60px;" alt="류재민"/><br />
+<b>류재민</b>
+</a><br/>
+기획 / 자료
+</td>
+</tr>
+</table>
+
+---
+
+## 프로젝트 링크
+
+- [Notion 기획서 (MVP)](https://www.notion.so/2025-AI-4-ROUTY-296087d76afe80128dcee38b384e2962)  
+- [GitHub FE 리포지토리](https://github.com/zzfbwoals/2025_AI_HACKATHON_FE)  
+- [GitHub BE 리포지토리](https://github.com/zzfbwoals/2025_AI_HACKATHON_BE)
+
+---
+
+© 2025 AI HACHATHON Team 4
