@@ -1,13 +1,12 @@
 import bcrypt
 import mysql.connector
 import re
-from flask import Flask, render_template, request, jsonify, send_file, make_response
+from flask import Flask, render_template, request, jsonify, send_file, make_response, send_from_directory
 from openai import OpenAI
 import speech_recognition as sr
 from gtts import gTTS
 import tempfile
 import os
-import pymysql
 from datetime import datetime, timedelta
 
 DB_CONFIG ={
@@ -22,12 +21,12 @@ def get_db_connection():
 
 # 더미 데이터 설정
 DUMMY_DATA = {
-    'name': '테스트부모',
-    'email': 'test@example.com',
-    'password_plain': 'testpassword123!',
-    'child_name': '테스트아이',
-    'child_age': 5,
-    # character_id는 NULL로 처리 (필수 FK가 아니라고 가정)
+   'name': '테스트부모',
+   'email': 'test@example.com',
+   'password_plain': 'testpassword123!',
+   'child_name': '테스트아이',
+   'child_age': 5,
+   # character_id는 NULL로 처리 (필수 FK가 아니라고 가정)
 }
 
 client_adult = OpenAI(api_key='')
@@ -35,98 +34,39 @@ client_child = OpenAI(api_key='')
 model_name = "gpt-5-nano"
 
 EMAIL_RE = re.compile(
-    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+"
-    r"@"
-    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
-    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
+   r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+"
+   r"@"
+   r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+   r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
 )
 
 def is_valid_email(addr: str) -> bool:
-    return bool(EMAIL_RE.fullmatch(addr))
+   return bool(EMAIL_RE.fullmatch(addr))
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 
-@app.route('/')
-def process_data_and_display():
-   conn = None
-   cursor = None
-   user_id_to_delete = None
-   users_after_insert = []
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_flutter_app(path):
+    """
+    Flutter 웹 앱의 모든 경로 요청을 처리합니다.
+    1. path가 실제 파일(JS, CSS, 에셋)이면 해당 파일을 반환합니다.
+    2. path가 앱 내부 라우팅 경로(예: /home)이면 index.html을 반환합니다.
+    """
     
-    # 출력 결과를 저장할 문자열
-   output_message = "<h1>MySQL CRUD 테스트 결과</h1>"
-
-   try:
-      conn = get_db_connection()
-      cursor = conn.cursor(dictionary=True)
-
-        # 1. 데이터 삽입 (CREATE)
-        # ----------------------------------------------------
-      hashed_password = bcrypt.hashpw(
-          DUMMY_DATA['password_plain'].encode('utf-8'), 
-          bcrypt.gensalt()
-          ).decode('utf-8')
-      insert_sql = """
-            INSERT INTO users (name, email, password, child_name, child_age, character_id) 
-            VALUES (%s, %s, %s, %s, %s, NULL)
-            """
-      cursor.execute(insert_sql, (
-            DUMMY_DATA['name'], 
-            DUMMY_DATA['email'], 
-            hashed_password, 
-            DUMMY_DATA['child_name'], 
-            DUMMY_DATA['child_age']
-        ))
-      conn.commit()
-      user_id_to_delete = cursor.lastrowid
-        
-      output_message += f"<p style='color: green;'>✅ **삽입 성공:** ID {user_id_to_delete} (이후 즉시 삭제 예정)</p>"
-        
-        
-        # 2. 데이터 조회 (READ)
-        # ----------------------------------------------------
-      read_sql = "SELECT id, name, child_name, email FROM users ORDER BY id DESC LIMIT 5"
-      cursor.execute(read_sql)
-      users_after_insert = cursor.fetchall()
-        
-      output_message += "<h2>현재 users 테이블 데이터 (삽입 직후)</h2><ul>"
-        
-      for user in users_after_insert:
-         is_dummy = "★더미 데이터★" if user['id'] == user_id_to_delete else ""
-         output_message += f"<li>ID: {user['id']}, 부모: {user['name']}, 아이: {user['child_name']} ({is_dummy})</li>"
-         output_message += "</ul>"
-
-
-        # 3. 데이터 삭제 (DELETE)
-        # ----------------------------------------------------
-      delete_sql = "DELETE FROM users WHERE id = %s"
-      cursor.execute(delete_sql, (user_id_to_delete,))
-      conn.commit()
-        
-      output_message += f"<p style='color: blue;'>🗑️ **삭제 성공:** ID {user_id_to_delete} 삭제 완료.</p>"
-
-
-        # 4. 결과 출력
-        # HTML 템플릿 없이 문자열을 바로 반환합니다.
-      response = make_response(output_message)
-      response.headers['Content-Type'] = 'text/html; charset=utf-8'
-      return response
-
-   except mysql.connector.Error as err:
-        # 데이터베이스 오류 처리
-      if conn:
-         conn.rollback()
-      error_msg = f"<h2 style='color: red;'>❌ 데이터베이스 오류 발생</h2><p>오류 내용: {err}</p>"
-      response = make_response(error_msg)
-      response.headers['Content-Type'] = 'text/html; charset=utf-8'
-      return response, 500
-
-   finally:
-        # 연결 자원 해제
-      if cursor:
-         cursor.close()
-      if conn:
-         conn.close()
+    # 1. 요청된 경로가 'static' 폴더 내에 실제 파일로 존재하는지 확인 (예: main.dart.js)
+    requested_path = os.path.join(app.static_folder, path)
+    if path != "" and os.path.exists(requested_path):
+        # 파일이 존재하면 해당 정적 파일을 반환합니다.
+        return send_from_directory(app.static_folder, path)
+    
+    # 2. 파일이 없거나 루트 경로(/)인 경우, Flutter의 메인 진입점인 index.html을 반환합니다.
+    #    이렇게 해야 Flutter의 JavaScript 코드가 페이지를 로드하고 내부 라우팅을 처리할 수 있습니다.
+    try:
+        return send_from_directory(app.static_folder, 'index.html')
+    except Exception as e:
+        # 파일이 복사되지 않았을 때 오류 메시지
+        return f"Error: Flutter index.html not found in static folder. Check that build/web content is copied to static/. Details: {e}", 500
 
 @app.route('/signup', methods=['POST'])
 def signup():
@@ -215,75 +155,75 @@ def login():
 
 @app.route('/home', methods=['GET'])
 def get_routine_stats(user_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
+   conn = get_db_connection()
+   cur = conn.cursor()
 
-    # 📌 1️⃣ 총 루틴 수
-    cur.execute("SELECT COUNT(*) AS total_routines FROM routine WHERE user_id = %s;", (user_id,))
-    total_routines = cur.fetchone()['total_routines']
+   # 📌 1️⃣ 총 루틴 수
+   cur.execute("SELECT COUNT(*) AS total_routines FROM routine WHERE user_id = %s;", (user_id,))
+   total_routines = cur.fetchone()['total_routines']
 
-    # 📌 2️⃣ 이번 주 성공 루틴 수
-    cur.execute("""
-        SELECT COUNT(*) AS success_routines
-        FROM ActivityLog
-        WHERE user_id = %s
-          AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)
-    """, (user_id,))
-    success_routines = cur.fetchone()['success_routines']
+   # 📌 2️⃣ 이번 주 성공 루틴 수
+   cur.execute("""
+               SELECT COUNT(*) AS success_routines
+               FROM ActivityLog
+               WHERE user_id = %s
+               AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)
+               """, (user_id,))
+   success_routines = cur.fetchone()['success_routines']
 
-    # 📌 3️⃣ 이번 주 통계 (완료 루틴 수, 연속 일수, 총 루틴 수)
-    # 완료 루틴 수 (이번 주의 ActivityLog 개수 기준)
-    cur.execute("""
+   # 📌 3️⃣ 이번 주 통계 (완료 루틴 수, 연속 일수, 총 루틴 수)
+   # 완료 루틴 수 (이번 주의 ActivityLog 개수 기준)
+   cur.execute("""
         SELECT COUNT(*) AS completed_count
         FROM ActivityLog
         WHERE user_id = %s
           AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)
     """, (user_id,))
-    completed_count = cur.fetchone()['completed_count']
+   completed_count = cur.fetchone()['completed_count']
 
-    # 연속 일수 계산 (오늘 포함 최근 날짜 기준)
-    cur.execute("""
+   # 연속 일수 계산 (오늘 포함 최근 날짜 기준)
+   cur.execute("""
         SELECT DISTINCT date FROM ActivityLog
         WHERE user_id = %s
         ORDER BY date DESC
     """, (user_id,))
-    dates = [row['date'] for row in cur.fetchall()]
+   dates = [row['date'] for row in cur.fetchall()]
 
-    streak = 0
-    today = datetime.now().date()
-    for i, d in enumerate(dates):
-        if (today - timedelta(days=i)) == d:
-            streak += 1
-        else:
-            break
+   streak = 0
+   today = datetime.now().date()
+   for i, d in enumerate(dates):
+      if (today - timedelta(days=i)) == d:
+         streak += 1
+      else:
+         break
 
-    # 📌 4️⃣ 오늘의 루틴 목록
-    cur.execute("""
-        SELECT routin AS routine_name, routine_content, TIME(routine_time) AS time
-        FROM routine
-        WHERE user_id = %s AND DATE(routine_time) = CURDATE()
-        ORDER BY routine_time
-    """, (user_id,))
-    today_routines = cur.fetchall()
+   # 📌 4️⃣ 오늘의 루틴 목록
+   cur.execute("""
+               SELECT routin AS routine_name, routine_content, TIME(routine_time) AS time
+               FROM routine
+               WHERE user_id = %s AND DATE(routine_time) = CURDATE()
+               ORDER BY routine_time
+               """, (user_id,))
+   today_routines = cur.fetchall()
 
-    # 연결 종료
-    cur.close()
-    conn.close()
+   # 연결 종료
+   cur.close()
+   conn.close()
 
-    # 📦 결과 JSON으로 반환
-    return jsonify({
-        "result": "success",
-        "data": {
-            "총 루틴 수": total_routines,
-            "이번 주 성공 루틴 수": success_routines,
-            "이번 주 통계": {
-                "완료 루틴 수": completed_count,
-                "연속 일수": streak,
-                "총 루틴 수": total_routines
-            },
-            "오늘의 루틴": today_routines
-        }
-    })
+   # 📦 결과 JSON으로 반환
+   return jsonify({
+      "result": "success",
+      "data": {
+         "총 루틴 수": total_routines,
+         "이번 주 성공 루틴 수": success_routines,
+         "이번 주 통계": {
+               "완료 루틴 수": completed_count,
+               "연속 일수": streak,
+               "총 루틴 수": total_routines
+               },
+               "오늘의 루틴": today_routines
+         }
+      })
 
 if __name__ == '__main__':
     app.run(debug=True)
@@ -349,6 +289,24 @@ def chat_child():
     # 4️⃣ mp3 음성 반환
     return send_file(output_path, mimetype="audio/mpeg")
 
+@app.route('/generate-routine', methods=['POST'])
+def chat_adult():
+   data = request.get_json()
+   response = client_child.responses.create(
+      model=model_name,
+      input=[
+         {
+            'role': 'developer',
+            'content': '시스템 프롬프트 (루틴 제공, 부모에게 리포트 제공)'
+         },
+         {
+            'role': 'user',
+            'content': data.get('prompt')
+         }
+        ]
+   )
+   return response.output_text
+
 @app.route('/adult', methods=['POST'])
 def chat_adult():
    data = request.get_json()
@@ -364,7 +322,7 @@ def chat_adult():
             'content': data.get('prompt')
          }
         ]
-    )
+   )
    return response.output_text
 
 @app.route('/mypage', methods=['GET'])
