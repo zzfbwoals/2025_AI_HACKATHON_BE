@@ -46,86 +46,85 @@ app = Flask(__name__)
 
 @app.route('/')
 def process_data_and_display():
-    conn = None
-    cursor = None
-    user_id_to_delete = None
-    users_after_insert = []
+   conn = None
+   cursor = None
+   user_id_to_delete = None
+   users_after_insert = []
     
     # 출력 결과를 저장할 문자열
-    output_message = "<h1>MySQL CRUD 테스트 결과</h1>"
+   output_message = "<h1>MySQL CRUD 테스트 결과</h1>"
 
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+   try:
+      conn = get_db_connection()
+      cursor = conn.cursor(dictionary=True)
 
         # 1. 데이터 삽입 (CREATE)
         # ----------------------------------------------------
-        hashed_password = bcrypt.hashpw(
-            DUMMY_DATA['password_plain'].encode('utf-8'), 
-            bcrypt.gensalt()
-        ).decode('utf-8')
-        
-        insert_sql = """
+      hashed_password = bcrypt.hashpw(
+          DUMMY_DATA['password_plain'].encode('utf-8'), 
+          bcrypt.gensalt()
+          ).decode('utf-8')
+      insert_sql = """
             INSERT INTO users (name, email, password, child_name, child_age, character_id) 
             VALUES (%s, %s, %s, %s, %s, NULL)
-        """
-        cursor.execute(insert_sql, (
+            """
+      cursor.execute(insert_sql, (
             DUMMY_DATA['name'], 
             DUMMY_DATA['email'], 
             hashed_password, 
             DUMMY_DATA['child_name'], 
             DUMMY_DATA['child_age']
         ))
-        conn.commit()
-        user_id_to_delete = cursor.lastrowid
+      conn.commit()
+      user_id_to_delete = cursor.lastrowid
         
-        output_message += f"<p style='color: green;'>✅ **삽입 성공:** ID {user_id_to_delete} (이후 즉시 삭제 예정)</p>"
+      output_message += f"<p style='color: green;'>✅ **삽입 성공:** ID {user_id_to_delete} (이후 즉시 삭제 예정)</p>"
         
         
         # 2. 데이터 조회 (READ)
         # ----------------------------------------------------
-        read_sql = "SELECT id, name, child_name, email FROM users ORDER BY id DESC LIMIT 5"
-        cursor.execute(read_sql)
-        users_after_insert = cursor.fetchall()
+      read_sql = "SELECT id, name, child_name, email FROM users ORDER BY id DESC LIMIT 5"
+      cursor.execute(read_sql)
+      users_after_insert = cursor.fetchall()
         
-        output_message += "<h2>현재 users 테이블 데이터 (삽입 직후)</h2><ul>"
+      output_message += "<h2>현재 users 테이블 데이터 (삽입 직후)</h2><ul>"
         
-        for user in users_after_insert:
-            is_dummy = "★더미 데이터★" if user['id'] == user_id_to_delete else ""
-            output_message += f"<li>ID: {user['id']}, 부모: {user['name']}, 아이: {user['child_name']} ({is_dummy})</li>"
-        output_message += "</ul>"
+      for user in users_after_insert:
+         is_dummy = "★더미 데이터★" if user['id'] == user_id_to_delete else ""
+         output_message += f"<li>ID: {user['id']}, 부모: {user['name']}, 아이: {user['child_name']} ({is_dummy})</li>"
+         output_message += "</ul>"
 
 
         # 3. 데이터 삭제 (DELETE)
         # ----------------------------------------------------
-        delete_sql = "DELETE FROM users WHERE id = %s"
-        cursor.execute(delete_sql, (user_id_to_delete,))
-        conn.commit()
+      delete_sql = "DELETE FROM users WHERE id = %s"
+      cursor.execute(delete_sql, (user_id_to_delete,))
+      conn.commit()
         
-        output_message += f"<p style='color: blue;'>🗑️ **삭제 성공:** ID {user_id_to_delete} 삭제 완료.</p>"
+      output_message += f"<p style='color: blue;'>🗑️ **삭제 성공:** ID {user_id_to_delete} 삭제 완료.</p>"
 
 
         # 4. 결과 출력
         # HTML 템플릿 없이 문자열을 바로 반환합니다.
-        response = make_response(output_message)
-        response.headers['Content-Type'] = 'text/html; charset=utf-8'
-        return response
+      response = make_response(output_message)
+      response.headers['Content-Type'] = 'text/html; charset=utf-8'
+      return response
 
-    except mysql.connector.Error as err:
+   except mysql.connector.Error as err:
         # 데이터베이스 오류 처리
-        if conn:
-            conn.rollback()
-        error_msg = f"<h2 style='color: red;'>❌ 데이터베이스 오류 발생</h2><p>오류 내용: {err}</p>"
-        response = make_response(error_msg)
-        response.headers['Content-Type'] = 'text/html; charset=utf-8'
-        return response, 500
+      if conn:
+         conn.rollback()
+      error_msg = f"<h2 style='color: red;'>❌ 데이터베이스 오류 발생</h2><p>오류 내용: {err}</p>"
+      response = make_response(error_msg)
+      response.headers['Content-Type'] = 'text/html; charset=utf-8'
+      return response, 500
 
-    finally:
+   finally:
         # 연결 자원 해제
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+      if cursor:
+         cursor.close()
+      if conn:
+         conn.close()
 
 @app.route('/signup', methods=['POST'])
 def signup():
@@ -157,29 +156,29 @@ def signup():
 
    #데이터 베이스에 저장 로직
    try:
-       conn = get_db_connection()
-       cursor = conn.cursor(dictionary=True)
+      conn = get_db_connection()
+      cursor = conn.cursor(dictionary=True)
 
-       check_sql = "SELECT id FROM users WHERE email = %s"
-       cursor.execute(check_sql, (email,))
-       if cursor.fetchone():
-           return jsonify({'result': 'fail', 'msg': '이미 존재하는 이메일입니다.'})
-       hashed_password = bcrypt.hashpw(
+      check_sql = "SELECT id FROM users WHERE email = %s"
+      cursor.execute(check_sql, (email,))
+      if cursor.fetchone():
+         return jsonify({'result': 'fail', 'msg': '이미 존재하는 이메일입니다.'})
+      hashed_password = bcrypt.hashpw(
             password.encode('utf-8'), 
             bcrypt.gensalt()
         ).decode('utf-8')
-       insert_sql = """
+      insert_sql = """
             INSERT INTO users (name, email, password, child_name, child_age, character_id) 
             VALUES (%s, %s, %s, %s, %s, NULL)
         """
-       cursor.execute(insert_sql, (name, email, hashed_password, child_name, child_age))
-       conn.commit()
+      cursor.execute(insert_sql, (name, email, hashed_password, child_name, child_age))
+      conn.commit()
 
-       return jsonify({'result': 'success', 'msg': '회원가입 성공'})
+      return jsonify({'result': 'success', 'msg': '회원가입 성공'})
    except mysql.connector.Error as err:
-       if conn and conn.is_connected():
-           conn.rollback()
-       return jsonify({'result': 'fail', 'msg': '데이터베이스 처리 중 오류가 발생했습니다.'})
+      if conn and conn.is_connected():
+         conn.rollback()
+      return jsonify({'result': 'fail', 'msg': '데이터베이스 처리 중 오류가 발생했습니다.'})
    
    finally:
       if cursor:
@@ -189,6 +188,9 @@ def signup():
 
 @app.route('/login', methods=['POST'])
 def login():
+   conn = None
+   cursor = None
+
    # data = request.get_json()
    # email = data.get('email')
    # password = data.get('password')
