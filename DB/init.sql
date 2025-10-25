@@ -70,3 +70,94 @@ CREATE TABLE learning_contents (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+-- 'Dialogue' 테이블 생성
+CREATE TABLE Dialogue (
+    -- 기본 키 (Primary Key), INT 타입, 자동 증가 설정
+    id INT NOT NULL AUTO_INCREMENT,
+    
+    -- Character 테이블을 참조하는 외래 키 (Foreign Key)
+    character_id INT NOT NULL,
+    
+    -- 발화자 유형 (예: 'user', 'ai')
+    sender_type VARCHAR(20) NOT NULL,
+    
+    -- 실제 대화 내용을 저장하는 필드 (긴 텍스트 저장을 위해 TEXT 타입 사용)
+    message_text TEXT NOT NULL,
+    
+    -- 대화 생성 시간 (자동으로 현재 시간이 기록됨)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- 감정 태그 저장
+    emotion_tag VARCHAR(50),
+    
+    -- PK 설정
+    PRIMARY KEY (id),
+    
+    -- FK 설정: character_id는 Character 테이블의 ID를 참조
+    FOREIGN KEY (character_id) REFERENCES characters(id)
+);
+
+-- 참고:
+-- 1. 이 코드를 실행하기 전에 Character 테이블(ID 필드가 포함된)이 데이터베이스에 먼저 생성되어 있어야 합니다.
+-- 2. VARCHAR 길이 (20, 50)는 필요에 따라 조절할 수 있습니다.
+
+-- 'ToDoList' 테이블 생성
+CREATE TABLE ToDoList (
+    -- 기본 키 (Primary Key) 설정 및 자동 증가 설정
+    id INT NOT NULL AUTO_INCREMENT,
+    
+    -- User 테이블의 ID를 참조하는 외래 키 (Foreign Key). NULL 불가능
+    user_id INT NOT NULL,
+    
+    -- 체크리스트/할 일 이름. NULL 불가능
+    name VARCHAR(255) NOT NULL,
+    
+    -- 생성 일자. DATE 타입, NULL 불가능
+    created_at DATE NOT NULL,
+    
+    -- 업데이트 일자. DATE 타입, NULL 불가능
+    updated_at DATE NOT NULL,
+    
+    -- 완료 여부. BOOLEAN 타입 (MySQL에서는 TINYINT(1)로 처리됨), 기본 값은 FALSE(0)
+    is_checked BOOLEAN DEFAULT FALSE,
+    
+    -- PK 설정
+    PRIMARY KEY (id),
+    
+    -- user_id를 User 테이블의 ID에 연결하는 FK 설정
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- 'ActivityLog' (행동 기록) 테이블 생성
+CREATE TABLE ActivityLog (
+    -- 기본 키 (Primary Key) 설정 및 자동 증가 설정
+    id INT NOT NULL AUTO_INCREMENT,
+    
+    -- User 테이블의 ID를 참조하는 외래 키 (Foreign Key). user_id에도 AUTO_INCREMENT가 있지만, FK에서는 이 속성을 사용하지 않습니다.
+    user_id INT NOT NULL,
+    
+    -- 날짜 기록
+    date DATE NOT NULL,
+    
+    -- 기분 (예: VARCHAR 또는 ENUM으로 기분 상태를 정의할 수 있습니다)
+    mood VARCHAR(50),
+    
+    -- 집중도 (예: INT, 1-5 범위의 척도 또는 VARCHAR)
+    focus_level INT,
+    
+    -- 하루 행동 요약 (긴 텍스트 저장을 위해 TEXT 타입 사용)
+    activity_note TEXT,
+    
+    -- 수면의 질 (예: INT, 1-5 범위의 척도 또는 VARCHAR)
+    sleep_quality INT,
+    
+    -- 기록 작성 시간 (자동으로 현재 시간이 기록됨)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- PK 설정
+    PRIMARY KEY (id),
+    
+    -- user_id를 User 테이블의 ID에 연결하는 FK 설정
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
