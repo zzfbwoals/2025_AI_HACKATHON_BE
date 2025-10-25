@@ -1,6 +1,10 @@
 import re
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from openai import OpenAI
+import speech_recognition as sr
+from gtts import gTTS
+import tempfile
+import os
 
 client_adult = OpenAI(api_key='')
 client_child = OpenAI(api_key='')
@@ -52,26 +56,48 @@ def login():
    #데이터 베이스와 비교 로직
    return jsonify({'result': 'success'})
 
-@app.route('/adult', methods=['POST'])
-def chat_adult():
-   data = request.get_json()
-   response = client_adult.responses.create(
-      model=model_name,
-      input=[
-         {
-            'role': 'developer',
-            'content': '시스템 프롬프트 (아이와 대화)'
-         },
-         {
-            'role': 'user',
-            'content': data.get('prompt')
-         }
-        ]
-    )
-   return response.output_text
-
 @app.route('/child', methods=['POST'])
 def chat_child():
+    if 'audio' not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+
+    audio_file = request.files['audio']
+
+    # 임시 wav 파일 저장
+    temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+    audio_file.save(temp_audio_path)
+
+    # 1️⃣ STT 변환
+    r = sr.Recognizer()
+    with sr.AudioFile(temp_audio_path) as source:
+        audio_data = r.record(source)
+        try:
+            user_text = r.recognize_google(audio_data, language='ko-KR')
+            print("🎙️ 아이가 말한 내용:", user_text)
+        except Exception as e:
+            return jsonify({"error": f"음성 인식 실패: {str(e)}"}), 400
+
+    # 2️⃣ AI 응답 생성
+    response = client_child.responses.create(
+        model=model_name,
+        input=[
+            {"role": "developer", "content": "시스템 프롬프트 (아이와 대화)"},
+            {"role": "user", "content": user_text}
+        ]
+    )
+    ai_text = response.output_text
+    print("🤖 AI 응답:", ai_text)
+
+    # 3️⃣ TTS 변환 (텍스트 → 음성)
+    tts = gTTS(text=ai_text, lang='ko')
+    output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+    tts.save(output_path)
+
+    # 4️⃣ mp3 음성 반환
+    return send_file(output_path, mimetype="audio/mpeg")
+
+@app.route('/adult', methods=['POST'])
+def chat_adult():
    data = request.get_json()
    response = client_child.responses.create(
       model=model_name,
