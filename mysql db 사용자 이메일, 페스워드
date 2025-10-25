@@ -2,7 +2,7 @@
 CREATE DATABASE myapp CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE myapp;
 
--- 1️⃣ Character 테이블 (캐릭터 정보)
+-- 1️ character 테이블 (캐릭터 정보)
 CREATE TABLE characters (
     id INT AUTO_INCREMENT PRIMARY KEY,   -- 캐릭터 고유 ID
     name VARCHAR(50) NOT NULL,           -- 캐릭터 이름
@@ -10,7 +10,7 @@ CREATE TABLE characters (
     personality VARCHAR(100)             -- 캐릭터 특징
 );
 
--- 2️⃣ User 테이블 (부모 + 자녀 + 구독 정보)
+-- 2️ User 테이블 (부모 + 자녀 + 구독 정보)
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,          -- 부모(사용자) 고유 ID
     character_id INT,                           -- 연결된 캐릭터 ID (FK)
@@ -25,4 +25,48 @@ CREATE TABLE users (
     FOREIGN KEY (character_id) REFERENCES characters(id)
         ON UPDATE CASCADE
         ON DELETE SET NULL
+);
+
+-- 3️ Routine 테이블 (아이의 루틴 정보)
+CREATE TABLE routine (
+    id INT AUTO_INCREMENT PRIMARY KEY,          -- 루틴 고유 ID
+    user_id INT NOT NULL,                       -- 부모(사용자) ID (FK)
+    routin VARCHAR(100) NOT NULL,               -- 루틴 이름
+    routine_time DATETIME NOT NULL,             -- 루틴 시간
+    routine_content VARCHAR(255) NOT NULL,      -- 루틴 내용
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 생성일자
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 업데이트일자
+
+    FOREIGN KEY (user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+-- 4️ Routine Option 테이블 (루틴 세부 옵션)
+CREATE TABLE routine_options (
+    id INT AUTO_INCREMENT PRIMARY KEY,          -- 옵션 고유 ID
+    routine_id INT NOT NULL,                    -- 루틴 ID (FK)
+    minut INT,                                  -- 분
+    option_content VARCHAR(255),                -- 옵션 내용
+
+    FOREIGN KEY (routine_id) REFERENCES routine(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+-- 5️ Learning Contents 테이블 (학습 콘텐츠)
+CREATE TABLE learning_contents (
+    id INT AUTO_INCREMENT PRIMARY KEY,          -- 콘텐츠 고유 ID
+    user_id INT NOT NULL,                       -- 사용자 ID (FK)
+    title VARCHAR(100) NOT NULL,                -- 콘텐츠 제목
+    description TEXT,                           -- 콘텐츠 설명
+    category VARCHAR(50),                       -- 콘텐츠 종류
+    content_type VARCHAR(50),                   -- 형식 (예: 동영상, 게임, 퀴즈 등)
+    url VARCHAR(255),                           -- 링크
+    difficulty VARCHAR(20),                     -- 난이도
+    recommended_time INT,                       -- 권장 시청 시간 (분 단위)
+
+    FOREIGN KEY (user_id) REFERENCES users(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );
