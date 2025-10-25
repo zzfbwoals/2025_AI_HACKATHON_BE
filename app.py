@@ -15,7 +15,7 @@ DB_CONFIG ={
    'database': 'myapp'
 }
 
-def get_db_connenction():
+def get_db_connection():
    return mysql.connector.connect(**DB_CONFIG)
 
 # 더미 데이터 설정
@@ -55,7 +55,7 @@ def process_data_and_display():
     output_message = "<h1>MySQL CRUD 테스트 결과</h1>"
 
     try:
-        conn = get_db_connenction()
+        conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
         # 1. 데이터 삽입 (CREATE)
@@ -129,13 +129,23 @@ def process_data_and_display():
 
 @app.route('/signup', methods=['POST'])
 def signup():
-   data = request.get_json()
-   name = data.get('name')
-   email = data.get('email')
-   password = data.get('password')
-   password_confirm = data.get('password_confirm')
-   child_name = data.get('child_name')
-   child_age = data.get('child_age')
+   conn = None
+   cursor = None
+
+   # data = request.get_json()
+   # name = data.get('name')
+   # email = data.get('email')
+   # password = data.get('password')
+   # password_confirm = data.get('password_confirm')
+   # child_name = data.get('child_name')
+   # child_age = data.get('child_age')
+
+   name = '테스터'
+   email = 'tester_01@example.com'
+   password = 'StrongPassword123!'
+   password_confirm ='StrongPassword123!'
+   child_name = '테스트자녀'
+   child_age = 7
 
    #이메일 확인 정규식
    if not is_valid_email(email):
@@ -146,17 +156,47 @@ def signup():
       return jsonify({'result': 'fail', 'msg': '비밀번호 불일치'})
 
    #데이터 베이스에 저장 로직
-   return jsonify({'result': 'success', 'msg': '회원가입 성공'})
+   try:
+       conn = get_db_connection()
+       cursor = conn.cursor(dictionary=True)
+
+       check_sql = "SELECT id FROM users WHERE email = %s"
+       cursor.execute(check_sql, (email,))
+       if cursor.fetchone():
+           return jsonify({'result': 'fail', 'msg': '이미 존재하는 이메일입니다.'})
+       hashed_password = bcrypt.hashpw(
+            password.encode('utf-8'), 
+            bcrypt.gensalt()
+        ).decode('utf-8')
+       insert_sql = """
+            INSERT INTO users (name, email, password, child_name, child_age, character_id) 
+            VALUES (%s, %s, %s, %s, %s, NULL)
+        """
+       cursor.execute(insert_sql, (name, email, hashed_password, child_name, child_age))
+       conn.commit()
+
+       return jsonify({'result': 'success', 'msg': '회원가입 성공'})
+   except mysql.connector.Error as err:
+       if conn and conn.is_connected():
+           conn.rollback()
+       return jsonify({'result': 'fail', 'msg': '데이터베이스 처리 중 오류가 발생했습니다.'})
+   
+   finally:
+      if cursor:
+          cursor.close()
+      if conn and conn.is_connected():
+          conn.close()
 
 @app.route('/login', methods=['POST'])
 def login():
-   data = request.get_json()
-   email = data.get('email')
-   password = data.get('password')
+   # data = request.get_json()
+   # email = data.get('email')
+   # password = data.get('password')
 
-   conn = mysql.connector.connect(
-        host='localhost', user='root', password='1234', database='myapp'
-   )
+   email = 'tester_01@example.com'
+   password = 'StrongPassword123!'
+
+   conn = conn = get_db_connection()
    cursor = conn.cursor(dictionary=True)
 
    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
