@@ -9,6 +9,7 @@ from gtts import gTTS
 import tempfile
 import os
 from datetime import datetime, timedelta
+import json
 
 DB_CONFIG ={
    'host': '127.0.01',
@@ -302,13 +303,13 @@ def gen_character():
    #데이터 베이스에 캐릭터 정보 추가 로직
    return jsonify({'result': 'success'})
 
-@app.route('/child', methods=['POST'])
+@app.route('/api/chat', methods=['POST'])
 def chat_child():
-    import json
+    
 
     # 1️⃣ 텍스트 입력 받기
     data = request.get_json()
-    user_text = data.get('prompt', '').strip() if data else ''
+    user_text = data.get('message')
 
     # 2️⃣ 입력이 비어 있으면 실패 처리
     if not user_text:
@@ -586,7 +587,7 @@ SQL 데이터에서 주간/월간 변화 추이를 분석하여 그래프를 만
     """
 
     # 🧩 AI에게 JSON 데이터 직접 전달
-    response = client.responses.create(
+    response = client_child.responses.create(
         model=model_name,
         input=[
             {"role": "developer", "content": SYSTEM_PROMPT},
@@ -595,7 +596,10 @@ SQL 데이터에서 주간/월간 변화 추이를 분석하여 그래프를 만
     )
 
     ai_output = response.output_text
-    return ai_output   # ✅ 결과를 반환하도록 변경
+    return jsonify({
+        'result': 'success',
+        'response': ai_output  # ⬅️ 플러터가 이 'response' 키의 값을 읽음
+    })
 
 
 # 🔹 Flask 라우트 (DB 재조회하지 않고 analyze_user_data만 호출)
