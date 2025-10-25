@@ -7,6 +7,8 @@ import speech_recognition as sr
 from gtts import gTTS
 import tempfile
 import os
+import pymysql
+from datetime import datetime, timedelta
 
 DB_CONFIG ={
    'host': '127.0.01',
@@ -210,10 +212,80 @@ def login():
    return jsonify({'result': 'success'})
 
 @app.route('/home', methods=['GET'])
-def home():
-   # 데이터 베이스에서 유저 정보 불러오기 (총 루틴, 이번 주 성공 루틴, 이번 주 통계(완료 루틴, 연속 일수, 총 루틴), 오늘 루틴)
-   # 웹에 출력
-   return jsonify({'result': 'success', })
+def get_routine_stats(user_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 📌 1️⃣ 총 루틴 수
+    cur.execute("SELECT COUNT(*) AS total_routines FROM routine WHERE user_id = %s;", (user_id,))
+    total_routines = cur.fetchone()['total_routines']
+
+    # 📌 2️⃣ 이번 주 성공 루틴 수
+    cur.execute("""
+        SELECT COUNT(*) AS success_routines
+        FROM ActivityLog
+        WHERE user_id = %s
+          AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)
+    """, (user_id,))
+    success_routines = cur.fetchone()['success_routines']
+
+    # 📌 3️⃣ 이번 주 통계 (완료 루틴 수, 연속 일수, 총 루틴 수)
+    # 완료 루틴 수 (이번 주의 ActivityLog 개수 기준)
+    cur.execute("""
+        SELECT COUNT(*) AS completed_count
+        FROM ActivityLog
+        WHERE user_id = %s
+          AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)
+    """, (user_id,))
+    completed_count = cur.fetchone()['completed_count']
+
+    # 연속 일수 계산 (오늘 포함 최근 날짜 기준)
+    cur.execute("""
+        SELECT DISTINCT date FROM ActivityLog
+        WHERE user_id = %s
+        ORDER BY date DESC
+    """, (user_id,))
+    dates = [row['date'] for row in cur.fetchall()]
+
+    streak = 0
+    today = datetime.now().date()
+    for i, d in enumerate(dates):
+        if (today - timedelta(days=i)) == d:
+            streak += 1
+        else:
+            break
+
+    # 📌 4️⃣ 오늘의 루틴 목록
+    cur.execute("""
+        SELECT routin AS routine_name, routine_content, TIME(routine_time) AS time
+        FROM routine
+        WHERE user_id = %s AND DATE(routine_time) = CURDATE()
+        ORDER BY routine_time
+    """, (user_id,))
+    today_routines = cur.fetchall()
+
+    # 연결 종료
+    cur.close()
+    conn.close()
+
+    # 📦 결과 JSON으로 반환
+    return jsonify({
+        "result": "success",
+        "data": {
+            "총 루틴 수": total_routines,
+            "이번 주 성공 루틴 수": success_routines,
+            "이번 주 통계": {
+                "완료 루틴 수": completed_count,
+                "연속 일수": streak,
+                "총 루틴 수": total_routines
+            },
+            "오늘의 루틴": today_routines
+        }
+    })
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
 
 @app.route('/routines', methods=['POST'])
 def add_routine():
