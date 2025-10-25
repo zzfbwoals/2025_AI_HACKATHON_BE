@@ -53,7 +53,19 @@ def login():
    email = data.get('email')
    password = data.get('password')
 
-   #데이터 베이스와 비교 로직
+   conn = mysql.connector.connect(
+        host='localhost', user='root', password='1234', database='myapp'
+   )
+   cursor = conn.cursor(dictionary=True)
+
+   cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+   user = cursor.fetchone()
+
+   if not user:
+      return jsonify({'result': 'fail', 'msg': '존재하지 않는 이메일입니다.'})
+
+   if not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+      return jsonify({'result': 'fail', 'msg': '비밀번호가 일치하지 않습니다.'})
    return jsonify({'result': 'success'})
 
 @app.route('/home', methods=['GET'])
