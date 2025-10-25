@@ -23,7 +23,7 @@ def is_valid_email(addr: str) -> bool:
 app = Flask(__name__)
 
 @app.route('/')
-def home():
+def index_page():
    return 'index.html'
 
 @app.route('/signup', methods=['POST'])
@@ -54,6 +54,32 @@ def login():
    password = data.get('password')
 
    #데이터 베이스와 비교 로직
+   return jsonify({'result': 'success'})
+
+@app.route('/home', methods=['GET'])
+def home():
+   # 데이터 베이스에서 유저 정보 불러오기 (총 루틴, 이번 주 성공 루틴, 이번 주 통계(완료 루틴, 연속 일수, 총 루틴), 오늘 루틴)
+   # 웹에 출력
+   return jsonify({'result': 'success', })
+
+@app.route('/routines', methods=['POST'])
+def add_routine():
+   data = request.get_json()
+   routine_name = data.get('routine_name')
+   routine_content = data.get('routine_content')
+   start_date = data.get('start_date')
+
+   #데이터 베이스에 루틴 추가 로직
+   return jsonify({'result': 'success', 'msg': '루틴 저장 성공'})
+
+@app.route('/character', methods=['POST'])
+def gen_character():
+   data = request.get_json()
+   char_name = data.get('char_name')
+   char_description = data.get('char_description')
+   char_personality = data.get('char_personality')
+
+   #데이터 베이스에 캐릭터 정보 추가 로직
    return jsonify({'result': 'success'})
 
 @app.route('/child', methods=['POST'])
@@ -113,6 +139,12 @@ def chat_adult():
         ]
     )
    return response.output_text
+
+@app.route('/mypage', methods=['GET'])
+def mypage():
+   # 데이터 베이스에서 유저 정보 불러오기 (유저 이름, 유저 이메일, 총 루틴 수, 완료율)
+   # 웹에 출력
+   return jsonify({'result': 'success', })
 
 if __name__ == '__main__':  
    app.run('0.0.0.0', port=5001, debug=True)
