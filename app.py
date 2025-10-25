@@ -2,6 +2,7 @@ import bcrypt
 import mysql.connector
 import re
 from flask import Flask, render_template, request, jsonify, send_file, make_response, send_from_directory
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
 from openai import OpenAI
 import speech_recognition as sr
 from gtts import gTTS
@@ -45,6 +46,9 @@ def is_valid_email(addr: str) -> bool:
 
 app = Flask(__name__, static_folder='static')
 
+app.config["JWT_SECRET_KEY"] = "super-secret"
+jwt = JWTManager(app)
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_flutter_app(path):
@@ -68,47 +72,56 @@ def serve_flutter_app(path):
         # 파일이 복사되지 않았을 때 오류 메시지
         return f"Error: Flutter index.html not found in static folder. Check that build/web content is copied to static/. Details: {e}", 500
 
-@app.route('/signup', methods=['POST'])
+@app.route('/api/auth/register', methods=['POST'])
 def signup():
    conn = None
    cursor = None
 
-   # data = request.get_json()
-   # name = data.get('name')
-   # email = data.get('email')
-   # password = data.get('password')
-   # password_confirm = data.get('password_confirm')
-   # child_name = data.get('child_name')
-   # child_age = data.get('child_age')
-
-   name = '테스터'
-   email = 'tester_01@example.com'
-   password = 'StrongPassword123!'
-   password_confirm ='StrongPassword123!'
-   child_name = '테스트자녀'
-   child_age = 7
-
-   #이메일 확인 정규식
-   if not is_valid_email(email):
-      return jsonify({'result': 'fail', 'msg': '잘못된 이메일 형식'})
+   # 1. (수정됨) 주석을 풀어서 실제 플러터 요청을 받습니다.
+   data = request.get_json()
    
-   #비밀번호 확인 로직
-   if (password != password_confirm):
-      return jsonify({'result': 'fail', 'msg': '비밀번호 불일치'})
+   # (개선) 데이터가 아예 없는 경우 예외 처리
+   if not data:
+       return jsonify({'result': 'fail', 'msg': '요청 데이터가 없습니다.'}), 400
+
+   # 2. (수정됨) data.get()을 사용하여 JSON에서 값을 추출합니다.
+   name = data.get('name')
+   email = data.get('email')
+   password = data.get('password')
+   child_name = data.get('child_name')
+   child_age = data.get('child_age')
+
+   # (개선) 필수 값들이 모두 들어왔는지 확인
+   if not all([name, email, password, child_name, child_age is not None]):
+        return jsonify({'result': 'fail', 'msg': '필수 항목이 누락되었습니다.'}), 400
+
+   #이메일 확인 정규식 (이 함수는 이미 구현되어 있다고 가정)
+   if not is_valid_email(email):
+      return jsonify({'result': 'fail', 'msg': '잘못된 이메일 형식'}), 400
+   
+   # 4. (삭제됨) 비밀번호 확인 로직 삭제
+   #    플러터 앱에서 'password' 하나만 보내므로 이 로직은 필요 없습니다.
+   # if (password != password_confirm):
+   #    return jsonify({'result': 'fail', 'msg': '비밀번호 불일치'})
 
    #데이터 베이스에 저장 로직
    try:
-      conn = get_db_connection()
+      # (이 함수는 이미 구현되어 있다고 가정)
+      conn = get_db_connection() 
       cursor = conn.cursor(dictionary=True)
 
       check_sql = "SELECT id FROM users WHERE email = %s"
       cursor.execute(check_sql, (email,))
       if cursor.fetchone():
-         return jsonify({'result': 'fail', 'msg': '이미 존재하는 이메일입니다.'})
+         # (개선) 이미 존재하는 리소스는 409 Conflict
+         return jsonify({'result': 'fail', 'msg': '이미 존재하는 이메일입니다.'}), 409
+      
+      # (중요) bcrypt가 import 되어 있어야 함
       hashed_password = bcrypt.hashpw(
             password.encode('utf-8'), 
             bcrypt.gensalt()
         ).decode('utf-8')
+      
       insert_sql = """
             INSERT INTO users (name, email, password, child_name, child_age, character_id) 
             VALUES (%s, %s, %s, %s, %s, NULL)
@@ -116,11 +129,15 @@ def signup():
       cursor.execute(insert_sql, (name, email, hashed_password, child_name, child_age))
       conn.commit()
 
-      return jsonify({'result': 'success', 'msg': '회원가입 성공'})
+      # (개선) 성공 시 201 Created
+      return jsonify({'result': 'success', 'msg': '회원가입 성공'}), 201
+   
    except mysql.connector.Error as err:
+      print(f"DB Error: {err}") # (개선) 에러 로그
       if conn and conn.is_connected():
          conn.rollback()
-      return jsonify({'result': 'fail', 'msg': '데이터베이스 처리 중 오류가 발생했습니다.'})
+      # (개선) 서버 내부는 500 Internal Server Error
+      return jsonify({'result': 'fail', 'msg': '데이터베이스 처리 중 오류가 발생했습니다.'}), 500
    
    finally:
       if cursor:
@@ -133,25 +150,65 @@ def login():
    conn = None
    cursor = None
 
-   # data = request.get_json()
-   # email = data.get('email')
-   # password = data.get('password')
+   # 1. (수정) 플러터에서 보낸 실제 JSON 데이터 받기
+   data = request.get_json()
+   
+   if not data:
+       app.logger.warning("로그인: 요청 데이터가 없습니다.")
+       return jsonify({'result': 'fail', 'msg': '요청 데이터가 없습니다.'}), 400
 
-   email = 'tester_01@example.com'
-   password = 'StrongPassword123!'
+   email = data.get('email')
+   password = data.get('password')
 
-   conn = conn = get_db_connection()
-   cursor = conn.cursor(dictionary=True)
+   # 2. (삭제) 테스트용 하드코딩 데이터 삭제
+   # email = 'tester_01@example.com'
+   # password = 'StrongPassword123!'
 
-   cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-   user = cursor.fetchone()
+   if not email or not password:
+       app.logger.warning("로그인: 이메일 또는 비밀번호가 누락되었습니다.")
+       return jsonify({'result': 'fail', 'msg': '이메일과 비밀번호를 모두 입력해주세요.'}), 400
 
-   if not user:
-      return jsonify({'result': 'fail', 'msg': '존재하지 않는 이메일입니다.'})
+   app.logger.info(f"로그인 시도: {email}")
 
-   if not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-      return jsonify({'result': 'fail', 'msg': '비밀번호가 일치하지 않습니다.'})
-   return jsonify({'result': 'success'})
+   try:
+      conn = get_db_connection()
+      cursor = conn.cursor(dictionary=True)
+
+      cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+      user = cursor.fetchone()
+
+      # 3. 사용자 및 비밀번호 검증
+      if not user:
+         app.logger.warning(f"로그인 실패: 존재하지 않는 이메일 {email}")
+         return jsonify({'result': 'fail', 'msg': '존재하지 않는 이메일입니다.'}), 404
+
+      if not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+         app.logger.warning(f"로그인 실패: 비밀번호 불일치 {email}")
+         return jsonify({'result': 'fail', 'msg': '비밀번호가 일치하지 않습니다.'}), 401
+
+      # 4. (중요) 로그인 성공 시 토큰 생성
+      app.logger.info(f"로그인 성공: {email}")
+      
+      # 토큰에 사용자의 'id' (혹은 'email')를 담아서 생성합니다.
+      access_token = create_access_token(identity=user['id'])
+      
+      # 5. 플러터에 토큰과 함께 성공 응답 전송
+      return jsonify({
+          'result': 'success', 
+          'msg': '로그인 성공',
+          'token': access_token,      # ⬅️ 플러터가 저장할 토큰
+          'user_id': user['id']   # ⬅️ (선택사항) 사용자 ID
+      })
+
+   except Exception as e:
+      app.logger.error(f"로그인 중 DB 오류: {e}")
+      return jsonify({'result': 'fail', 'msg': '서버 오류가 발생했습니다.'}), 500
+   
+   finally:
+      if cursor:
+          cursor.close()
+      if conn and conn.is_connected():
+          conn.close()
 
 @app.route('/home', methods=['GET'])
 def get_routine_stats(user_id):
