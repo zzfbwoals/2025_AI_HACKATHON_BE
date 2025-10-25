@@ -49,13 +49,6 @@
 팀장 / 프론트
 </td>
 <td align="center">
-<a href="https://github.com/ujieeemin" target="_blank">
-<img src="https://avatars.githubusercontent.com/ujieeemin" width="60px;" alt="유한솔"/><br />
-<b>유지민</b>
-</a><br/>
-기획 / 자료
-</td>
-<td align="center">
 <a href="https://github.com/minjini-sys" target="_blank">
 <img src="https://avatars.githubusercontent.com/minjini-sys" width="60px;" alt="최희우"/><br />
 <b>김민진</b>
@@ -68,6 +61,13 @@
 <b>고도영</b>
 </a><br/>
 백엔드
+</td>
+<td align="center">
+<a href="https://github.com/ujieeemin" target="_blank">
+<img src="https://avatars.githubusercontent.com/ujieeemin" width="60px;" alt="유한솔"/><br />
+<b>유지민</b>
+</a><br/>
+기획 / 자료
 </td>
 <td align="center">
 <a href="https://github.com/zzfbwoals" target="_blank">
@@ -89,4 +89,4 @@
 
 ---
 
-© 2025 AI HACHATHON Team 4
+© 2025 AI HACKATHON Team 4
