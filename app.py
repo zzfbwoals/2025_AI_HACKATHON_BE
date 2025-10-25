@@ -1,10 +1,32 @@
+import bcrypt
+import mysql.connector
 import re
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, make_response
 from openai import OpenAI
 import speech_recognition as sr
 from gtts import gTTS
 import tempfile
 import os
+
+DB_CONFIG ={
+   'host': '127.0.01',
+   'user': 'app_user',
+   'password': 'flask_app_password',
+   'database': 'myapp'
+}
+
+def get_db_connenction():
+   return mysql.connector.connect(**DB_CONFIG)
+
+# 더미 데이터 설정
+DUMMY_DATA = {
+    'name': '테스트부모',
+    'email': 'test@example.com',
+    'password_plain': 'testpassword123!',
+    'child_name': '테스트아이',
+    'child_age': 5,
+    # character_id는 NULL로 처리 (필수 FK가 아니라고 가정)
+}
 
 client_adult = OpenAI(api_key='')
 client_child = OpenAI(api_key='')
@@ -23,8 +45,87 @@ def is_valid_email(addr: str) -> bool:
 app = Flask(__name__)
 
 @app.route('/')
-def index_page():
-   return 'index.html'
+def process_data_and_display():
+    conn = None
+    cursor = None
+    user_id_to_delete = None
+    users_after_insert = []
+    
+    # 출력 결과를 저장할 문자열
+    output_message = "<h1>MySQL CRUD 테스트 결과</h1>"
+
+    try:
+        conn = get_db_connenction()
+        cursor = conn.cursor(dictionary=True)
+
+        # 1. 데이터 삽입 (CREATE)
+        # ----------------------------------------------------
+        hashed_password = bcrypt.hashpw(
+            DUMMY_DATA['password_plain'].encode('utf-8'), 
+            bcrypt.gensalt()
+        ).decode('utf-8')
+        
+        insert_sql = """
+            INSERT INTO users (name, email, password, child_name, child_age, character_id) 
+            VALUES (%s, %s, %s, %s, %s, NULL)
+        """
+        cursor.execute(insert_sql, (
+            DUMMY_DATA['name'], 
+            DUMMY_DATA['email'], 
+            hashed_password, 
+            DUMMY_DATA['child_name'], 
+            DUMMY_DATA['child_age']
+        ))
+        conn.commit()
+        user_id_to_delete = cursor.lastrowid
+        
+        output_message += f"<p style='color: green;'>✅ **삽입 성공:** ID {user_id_to_delete} (이후 즉시 삭제 예정)</p>"
+        
+        
+        # 2. 데이터 조회 (READ)
+        # ----------------------------------------------------
+        read_sql = "SELECT id, name, child_name, email FROM users ORDER BY id DESC LIMIT 5"
+        cursor.execute(read_sql)
+        users_after_insert = cursor.fetchall()
+        
+        output_message += "<h2>현재 users 테이블 데이터 (삽입 직후)</h2><ul>"
+        
+        for user in users_after_insert:
+            is_dummy = "★더미 데이터★" if user['id'] == user_id_to_delete else ""
+            output_message += f"<li>ID: {user['id']}, 부모: {user['name']}, 아이: {user['child_name']} ({is_dummy})</li>"
+        output_message += "</ul>"
+
+
+        # 3. 데이터 삭제 (DELETE)
+        # ----------------------------------------------------
+        delete_sql = "DELETE FROM users WHERE id = %s"
+        cursor.execute(delete_sql, (user_id_to_delete,))
+        conn.commit()
+        
+        output_message += f"<p style='color: blue;'>🗑️ **삭제 성공:** ID {user_id_to_delete} 삭제 완료.</p>"
+
+
+        # 4. 결과 출력
+        # HTML 템플릿 없이 문자열을 바로 반환합니다.
+        response = make_response(output_message)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response
+
+    except mysql.connector.Error as err:
+        # 데이터베이스 오류 처리
+        if conn:
+            conn.rollback()
+        error_msg = f"<h2 style='color: red;'>❌ 데이터베이스 오류 발생</h2><p>오류 내용: {err}</p>"
+        response = make_response(error_msg)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response, 500
+
+    finally:
+        # 연결 자원 해제
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 @app.route('/signup', methods=['POST'])
 def signup():
