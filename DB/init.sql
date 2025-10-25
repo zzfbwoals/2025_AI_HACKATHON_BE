@@ -34,6 +34,7 @@ CREATE TABLE routine (
     routin VARCHAR(100) NOT NULL,               -- 루틴 이름
     routine_time DATETIME NOT NULL,             -- 루틴 시간
     routine_content VARCHAR(255) NOT NULL,      -- 루틴 내용
+    is_success TINYINT DEFAULT 0,               -- 루틴 성공 여부 (0: 미완료, 1: 완료)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 생성일자
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 업데이트일자
 
@@ -161,3 +162,11 @@ CREATE TABLE ActivityLog (
     -- user_id를 User 테이블의 ID에 연결하는 FK 설정
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+-- 캐릭터 데이터 삽입
+INSERT INTO characters (id, name, description, personality) VALUES
+(1, '루티', '활발하고 에너지가 넘치는 캐릭터', '활발함'),
+(2, '미니', '조용하고 차분한 성격의 캐릭터', '차분함'),
+(3, '스마트', '똑똑하고 호기심이 많은 캐릭터', '똑똑함'),
+(4, '체리', '사랑스럽고 귀여운 캐릭터', '사랑스러움'),
+(5, '스타', '밝고 긍정적인 에너지의 캐릭터', '긍정적');

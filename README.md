@@ -4,8 +4,7 @@
 
 루틴 관리 Flutter 애플리케이션
 
-<img width="1212" height="682" alt="image" src="https://github.com/user-attachments/assets/f682694b-4326-4287-9c71-1f66abad5a49" />
-
+<img width="1212" height="682" alt="image" src="https://github.com/user-attachments/assets/b047d5bd-2216-4e5b-9a2a-dfdbf01cdf50" />
 
 **"AI 챗봇 기반 소아 ADHD 아동 일상·수면 관리 및 부모 지원 플랫폼"**
 </div>
@@ -35,7 +34,58 @@
 ---
 ## 기술스택
 
-<img width="273" height="282" alt="제목 없음1" src="https://github.com/user-attachments/assets/51354d5b-6d3c-43f5-a07b-deb2096fa333" />
+<img width="273" height="282" alt="제목 없음1" src="https://github.com/user-attachments/assets/51354d5b-6d3c-43f5-a07b-deb2096aa950" />
+
+---
+## 프로젝트 시작하기
+
+### 1. 환경 설정
+
+#### 1.1 Python 패키지 설치
+```bash
+pip install flask flask-cors bcrypt mysql-connector-python openai
+```
+
+#### 1.2 데이터베이스 설정 (MySQL Workbench)
+
+1. MySQL Workbench 실행 후 root 계정으로 로컬 연결
+2. `DB/init.sql` 스크립트 실행:
+   - `File` → `Open SQL Script` → `DB/init.sql` 선택
+   - 전체 스크립트 실행 (⌘+⇧+Enter 또는 ⚡ 버튼)
+   - 생성된 테이블 확인: `users`, `routine`, `characters` 등
+
+3. **중요**: `app.py`의 DB 연결 정보 수정:
+   ```python
+   DB_CONFIG = {
+       'host': '127.0.0.1',
+       'user': 'root',  # 또는 본인이 사용하는 계정
+       'password': 'YOUR_MYSQL_PASSWORD',  # 본인의 MySQL 비밀번호
+       'database': 'myapp'
+   }
+   ```
+
+#### 1.3 백엔드 서버 실행
+```bash
+cd 2025_AI_HACKATHON_BE-main
+python3 app.py
+```
+서버가 `http://0.0.0.0:5001`에서 실행됩니다.
+
+#### 1.4 환경 변수 설정 (선택사항)
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+```
+
+### 2. 프론트엔드 설정
+
+#### 2.1 Flutter 앱 실행
+```bash
+cd flutter_hackathon_project
+flutter run
+```
+
+#### 2.2 API 연결 확인
+- `lib/constants/app_constants.dart`에서 `baseUrl`이 `http://localhost:5001`로 설정되어 있는지 확인
 
 ---
 ## 팀원 소개
